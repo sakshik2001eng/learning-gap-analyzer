@@ -1,9 +1,10 @@
 from datetime import datetime, timezone
 import os
+import re
 
 from fastapi import FastAPI
 from fastapi import HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 from pymongo import MongoClient
 
@@ -12,9 +13,41 @@ load_dotenv()
 app = FastAPI(title="Learning Gap Analyzer API")
 
 
+class ExpectedConcept(BaseModel):
+    name: str
+    keywords: list[str] = Field(default_factory=list)
+
+
 class AnswerRequest(BaseModel):
     question: str
     answer: str
+    expected_concepts: list[ExpectedConcept] = Field(default_factory=list)
+
+
+def normalize_phrase(text: str) -> str:
+    """Lowercase text and remove punctuation for simple phrase matching."""
+    return " ".join(re.findall(r"[a-z0-9]+", text.casefold()))
+
+
+def analyze_concepts(
+    answer: str, expected_concepts: list[ExpectedConcept]
+) -> tuple[list[str], list[str], int]:
+    """Match teacher-provided evidence phrases against a student answer."""
+    normalized_answer = f" {normalize_phrase(answer)} "
+    matched = []
+    gaps = []
+
+    for concept in expected_concepts:
+        evidence_phrases = concept.keywords or [concept.name]
+        has_evidence = any(
+            f" {normalize_phrase(phrase)} " in normalized_answer
+            for phrase in evidence_phrases
+            if normalize_phrase(phrase)
+        )
+        (matched if has_evidence else gaps).append(concept.name)
+
+    coverage = round(100 * len(matched) / len(expected_concepts)) if expected_concepts else 0
+    return matched, gaps, coverage
 
 
 @app.get("/")
@@ -45,8 +78,9 @@ def database_status():
 
 @app.post("/analyze")
 def analyze_answer(request: AnswerRequest):
-    # Answer analysis is still a placeholder; save the submission so the
-    # assessment-to-database workflow is real and can be inspected in Atlas.
+    matched_concepts, possible_gaps, coverage = analyze_concepts(
+        request.answer, request.expected_concepts
+    )
     uri = os.getenv("MONGODB_URI")
     if not uri:
         raise HTTPException(
@@ -57,10 +91,16 @@ def analyze_answer(request: AnswerRequest):
     record = {
         "question": request.question,
         "answer": request.answer,
-        "matched_concepts": [],
-        "possible_gaps": [],
+        "expected_concepts": [concept.model_dump() for concept in request.expected_concepts],
+        "matched_concepts": matched_concepts,
+        "possible_gaps": possible_gaps,
         "recommended_resources": [],
-        "analysis_status": "not_implemented_yet",
+        "coverage_percent": coverage,
+        "analysis_status": (
+            "keyword_match_v1"
+            if request.expected_concepts
+            else "awaiting_expected_concepts"
+        ),
         "created_at": datetime.now(timezone.utc),
     }
 
