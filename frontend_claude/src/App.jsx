@@ -1,0 +1,7 @@
+import {Routes,Route,Navigate} from 'react-router-dom';import Layout from './layouts/Layout';import Landing from './pages/Landing';
+import {StudentHome,StudentGaps,GapAnalysis,LearningPath,Quizzes,QuizPage,QuizResults,Progress} from './pages/student';
+import {TeacherHome,TeacherStudents,StudentAnalysis,TeacherGaps,Materials,Reports} from './pages/teacher';
+export default function App(){return <Routes><Route path="/" element={<Landing/>}/>
+ <Route path="/student" element={<Layout role="student"/>}><Route index element={<Navigate to="dashboard" replace/>}/><Route path="dashboard" element={<StudentHome/>}/><Route path="gaps" element={<StudentGaps/>}/><Route path="gaps/:id" element={<GapAnalysis/>}/><Route path="learning-path" element={<LearningPath/>}/><Route path="quizzes" element={<Quizzes/>}/><Route path="quiz/:id" element={<QuizPage/>}/><Route path="quiz/:id/results" element={<QuizResults/>}/><Route path="progress" element={<Progress/>}/></Route>
+ <Route path="/teacher" element={<Layout role="teacher"/>}><Route index element={<Navigate to="dashboard" replace/>}/><Route path="dashboard" element={<TeacherHome/>}/><Route path="students" element={<TeacherStudents/>}/><Route path="students/:id" element={<StudentAnalysis/>}/><Route path="gaps" element={<TeacherGaps/>}/><Route path="materials" element={<Materials/>}/><Route path="reports" element={<Reports/>}/></Route>
+ <Route path="*" element={<Navigate to="/" replace/>}/></Routes>}

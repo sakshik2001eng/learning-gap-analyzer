@@ -1,0 +1,15 @@
+import {Link} from 'react-router-dom';
+import {ResponsiveContainer} from 'recharts';
+export const Button=({to,variant='primary',className='',children,...p})=>{
+ const v={primary:'bg-brand-600 text-white hover:bg-brand-700',ghost:'border border-line bg-white hover:bg-brand-50',good:'bg-good text-white hover:opacity-90',bad:'bg-white border border-bad text-bad hover:bg-red-50'}[variant];
+ const c=`btn ${v} ${className}`;return to?<Link to={to} className={c} {...p}>{children}</Link>:<button className={c} {...p}>{children}</button>};
+export const StatCard=({label,value,icon:I,hint})=><div className="card p-5"><div className="flex items-center justify-between text-sm text-slate-600">{label}{I&&<I size={18} aria-hidden/>}</div><div className="mt-2 font-display text-3xl">{value}</div>{hint&&<div className="text-xs text-slate-500 mt-1">{hint}</div>}</div>;
+export const ProgressBar=({value,color='bg-brand-500'})=><div role="progressbar" aria-valuenow={value} aria-valuemin={0} aria-valuemax={100} className="h-2 w-full rounded-full bg-slate-100"><div className={`h-2 rounded-full ${color}`} style={{width:`${value}%`}}/></div>;
+const tone={High:'bg-red-50 text-bad',Medium:'bg-amber-50 text-warn',Low:'bg-emerald-50 text-good'};
+export const SeverityBadge=({level})=><span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${tone[level]}`}>{level} priority</span>;
+export const RiskBadge=({level})=><span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${tone[level]}`}>{level} risk</span>;
+export const ChartCard=({title,sub,children,h=240})=><div className="card p-5"><h3 className="font-semibold">{title}</h3>{sub&&<p className="text-sm text-slate-500">{sub}</p>}<div style={{height:h}} className="mt-4"><ResponsiveContainer width="100%" height="100%">{children}</ResponsiveContainer></div></div>;
+export const PageHead=({title,sub,children})=><div className="mb-6 flex flex-wrap items-end justify-between gap-3"><div><h1 className="font-display text-3xl">{title}</h1>{sub&&<p className="mt-1 text-slate-600">{sub}</p>}</div>{children}</div>;
+export const Tabs=({tabs,value,onChange})=><div role="tablist" className="flex flex-wrap gap-2">{tabs.map(t=><button key={t} role="tab" aria-selected={t===value} onClick={()=>onChange(t)} className={`rounded-full px-4 py-1.5 text-sm font-medium border ${t===value?'bg-brand-600 text-white border-brand-600':'bg-white border-line hover:bg-brand-50'}`}>{t}</button>)}</div>;
+export const EmptyState=({text})=><div className="card p-10 text-center text-slate-500">{text}</div>;
+export const ConfirmDialog=({open,title,text,onConfirm,onCancel})=>open?<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"><div role="alertdialog" aria-modal="true" aria-labelledby="cd-t" className="card w-full max-w-sm p-6"><h2 id="cd-t" className="font-semibold">{title}</h2><p className="mt-2 text-sm text-slate-600">{text}</p><div className="mt-4 flex justify-end gap-2"><Button variant="ghost" onClick={onCancel}>Cancel</Button><Button variant="bad" onClick={onConfirm}>Reject gap</Button></div></div></div>:null;
