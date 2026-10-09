@@ -1,2 +1,2 @@
-export const materials=[{n:'Java OOP Notes.pdf',title:'Java OOP Notes',concept:'Java OOP',difficulty:'Medium',desc:'Classes, inheritance, polymorphism.',t:'2 hours ago',s:'Processed'}];
-export const conceptOptions=['Recursion','Java OOP','Method Overriding','Hashing','Arrays','Trees'];
+export const materials=[{n:'Python Fundamentals Notes.pdf',title:'Python Fundamentals Notes',concept:'Python Fundamentals',difficulty:'Medium',desc:'Variables, conditions, loops, functions, lists, and dictionaries.',t:'2 hours ago',s:'Processed'}];
+export const conceptOptions=['Variables and Types','Conditions','Loops','Functions','Lists','Dictionaries'];
