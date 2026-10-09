@@ -1,6 +1,6 @@
 # AI-Powered Learning Gap Analyzer
 
-40% implementation milestone: a Python Fundamentals application with a React student and teacher interface, FastAPI, and MongoDB. Users create accounts and sign in; teachers create written-answer assessments with expected concepts; students submit answers; the API estimates concept mastery with semantic NLP, stores the analysis, and shows feedback to students and teachers.
+40% implementation milestone: a Python Fundamentals application with a React student and teacher interface, FastAPI, and MongoDB. Users create accounts and sign in; teachers create written-answer assessments with expected concepts; students submit answers; the API estimates concept mastery, identifies prerequisite concepts, recommends learning resources, stores the analysis, and shows feedback to students and teachers.
 
 ## Project folders
 
@@ -23,6 +23,8 @@ If the virtual environment is not created yet, run `py -m venv .venv` from the p
 
 Set `MONGODB_URI` and a random `JWT_SECRET_KEY` in `backend/.env` before starting the API. Keep this file private and never commit it. You can generate a secret in PowerShell with `py -c "import secrets; print(secrets.token_urlsafe(48))"`. Copy the result into `JWT_SECRET_KEY=`. The safe template is `backend/.env.example`.
 
+To load the sample Python concept prerequisites and tutorial links into MongoDB, open another terminal, go to `backend`, activate the environment, and run `python seed_data.py`. This seed uses upserts and does not clear existing collections. It requires a working Atlas connection.
+
 ### Terminal 2: web interface
 
 ```powershell
@@ -40,6 +42,7 @@ Open the local Vite URL printed in the terminal (usually http://localhost:5173).
 - `GET /auth/me` — retrieve the signed-in account
 - `POST /teacher/assignments` and `GET /teacher/assignments` — assign a student email to a subject and review progress
 - `GET /student/assignments` — retrieve subjects assigned to the signed-in student
+- `GET /student/resources` — retrieve learning resources for gaps in the student's saved submissions
 - `POST /assessments` — create an assessment (teacher account)
 - `GET /assessments` and `GET /assessments/{assessment_id}` — list assessments and read a question
 - `POST /assessments/{assessment_id}/submissions` — submit an answer (student account)
@@ -50,6 +53,6 @@ Swagger documentation is at http://127.0.0.1:8000/docs. The API uses seven-day s
 
 ## Current scope
 
-Answer analysis uses the `all-MiniLM-L6-v2` sentence-transformer to compare the student's answer with each teacher-defined concept and its keywords. Exact keyword hits receive a strong match score. If the model package or download is unavailable, the API transparently falls back to keyword matching so submissions still work. The first semantic submission downloads and caches the model locally; this requires internet access and additional Python dependencies/model files. Submission records include per-concept mastery estimates, evidence sentences, match method, coverage, and graph nodes. Treat scores as early estimates, not grades.
+Answer analysis uses the `all-MiniLM-L6-v2` sentence-transformer to compare the student's answer with each teacher-defined concept and its keywords. Exact keyword hits receive a strong match score. If the model package or download is unavailable, the API transparently falls back to keyword matching so submissions still work. The first semantic submission downloads and caches the model locally; this requires internet access and additional Python dependencies/model files. Submission records include per-concept mastery estimates, evidence sentences, match method, coverage, prerequisite information, and learning-resource recommendations. Concept prerequisites and resource links are stored in MongoDB collections seeded by `backend/seed_data.py`. Treat scores as early estimates, not grades.
 
 Email verification, password reset, and production-grade authentication are not implemented. Existing dashboard charts and some learning-gap/recommendation cards remain illustrative demo data; account, assignment, assessment, and submission records use MongoDB. Assessments are teacher-authored; automatic quiz generation is not implemented.

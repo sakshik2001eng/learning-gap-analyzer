@@ -6,7 +6,7 @@ This document is for the next teammate taking over the project. It describes the
 
 The project is a Python Fundamentals learning-gap analyzer. A teacher creates a written-answer assessment and defines expected concepts. The assigned student submits an answer. FastAPI compares answer sentences with each concept and its keywords using a sentence-transformer, saves the analysis in MongoDB, and shows per-concept feedback to students and teachers.
 
-The current scope is a demonstrable partial implementation. Semantic analysis is integrated into student answer submissions, with keyword fallback if the model cannot load. Assessments remain teacher-authored; automatic quiz generation is not implemented. The concept map is a simple display of analysis states, not a persisted prerequisite knowledge graph.
+The current scope is a demonstrable partial implementation. Semantic analysis is integrated into student answer submissions, with keyword fallback if the model cannot load. MongoDB stores a seeded Python concept prerequisite map and learning-resource links; gaps are enriched with prerequisite context and resources. Assessments remain teacher-authored; automatic quiz generation is not implemented.
 
 ## Current GitHub state
 
@@ -52,6 +52,8 @@ The current scope is a demonstrable partial implementation. Semantic analysis is
 - Students submit a free-text answer. The backend uses the student's signed-in account as the submitter; the browser cannot choose another student ID.
 - For each expected concept, the backend compares the concept name and teacher-provided keywords against answer sentences using semantic similarity. Exact keyword hits receive a strong match score. It returns estimated mastery, match method, best evidence sentence, matched concepts, possible gaps, coverage, and concept-map nodes.
 - The analyzer loads the model lazily on the first submission and caches it in the API process. The first run needs internet access to download it. If the package or download is unavailable, keyword matching keeps answer submissions working; `analysis_status` is `semantic_v2` or `keyword_fallback_v1`.
+- `backend/knowledge_graph.py` reads prerequisite concepts and learning resources from the existing MongoDB database connection. The answer-submission response and MongoDB record include resources for detected gaps and prerequisite states. Students can also retrieve resources from `GET /student/resources`.
+- `backend/seed_data.py` inserts or updates sample Python concepts and tutorial links. Run it from `backend/` with `python seed_data.py` after configuring `.env` and connecting to Atlas. It uses upserts and does not clear database collections.
 - The teacher's **My Students** page shows each assigned email and subject, pending/active status, assessment count, submission count, average assessment coverage, and latest activity.
 - Teacher submission views show the answer and its matched/missing concepts for their own assessments.
 - Quiz questions are teacher-authored. They are **not** generated automatically from notes or materials.
@@ -65,6 +67,8 @@ The application creates or uses these collections in `learning_gap_analyzer`:
 - `assignments`: `assignment_id`, `teacher_id`, `teacher_name`, `student_email`, nullable `student_id`/`student_name`, `subject`, status, and `created_at`. A unique compound index prevents the same teacher assigning the same email to the same subject twice.
 - `assessments`: `assessment_id`, title, description, subject, question, teacher-owned `expected_concepts`, `created_by`, and `created_at`.
 - `submissions`: `submission_id`, assessment/teacher/student IDs, student name, question and answer, matched concepts, possible gaps, per-concept scores/evidence, concept graph nodes, coverage percent, analysis status, and timestamp.
+- `concepts`: seeded concept names, keywords, prerequisite names, and descriptions.
+- `resources`: seeded tutorial links keyed to concept names.
 
 The expected-concept rubric is deliberately omitted from student-facing assessment responses. The saved submission contains its analysis result, not a need for the student to supply the rubric.
 
@@ -80,6 +84,7 @@ Open Swagger at `http://127.0.0.1:8000/docs` when the backend is running.
 - `POST /teacher/assignments` — teacher assigns an email to a subject.
 - `GET /teacher/assignments` — teacher's roster and progress summary.
 - `GET /student/assignments` — current student's assigned subjects and progress summary.
+- `GET /student/resources` — learning-resource links associated with the student's detected gaps.
 - `POST /assessments` — teacher creates an assessment.
 - `GET /assessments` — return assessments accessible to the signed-in account.
 - `GET /assessments/{assessment_id}` — read an authorized assessment question, without its expected-concept rubric.

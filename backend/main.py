@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 from pymongo import MongoClient
 from pymongo.errors import ConfigurationError, DuplicateKeyError, OperationFailure, ServerSelectionTimeoutError
 from nlp_engine import analyze_semantic
+from knowledge_graph import build_learning_support, get_resources_for_gaps
 
 load_dotenv()
 
@@ -413,6 +414,18 @@ def list_student_assignments(current_user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=503, detail="Could not retrieve your assigned subjects from MongoDB.")
 
 
+@app.get("/student/resources")
+def list_student_resources(current_user: dict = Depends(get_current_user)):
+    require_role(current_user, "student")
+    db = get_database()
+    try:
+        gaps = db.submissions.distinct("possible_gaps", {"student_id": current_user["user_id"]})
+        resources = get_resources_for_gaps(db, gaps)
+        return {"resources": resources, "gap_concepts": gaps}
+    except Exception:
+        raise HTTPException(status_code=503, detail="Could not retrieve recommended learning resources from MongoDB.")
+
+
 @app.post("/assessments", status_code=201)
 def create_assessment(request: AssessmentCreate, current_user: dict = Depends(get_current_user)):
     require_role(current_user, "teacher")
@@ -493,6 +506,13 @@ def submit_answer(assessment_id: str, request: SubmissionCreate, current_user: d
         raise HTTPException(status_code=403, detail="You are not assigned to this subject by its teacher.")
 
     analysis = analyze_submission(request.answer, assessment["expected_concepts"])
+    try:
+        resources, prerequisite_map = build_learning_support(
+            db, analysis["gaps"], analysis["concept_scores"]
+        )
+    except Exception as exc:
+        logger.warning("Learning-resource lookup unavailable (%s).", type(exc).__name__)
+        resources, prerequisite_map = [], []
     record = {
         "submission_id": str(uuid4()),
         "assessment_id": assessment_id,
@@ -506,6 +526,8 @@ def submit_answer(assessment_id: str, request: SubmissionCreate, current_user: d
         "possible_gaps": analysis["gaps"],
         "concept_scores": analysis["concept_scores"],
         "concept_graph": analysis["graph"],
+        "recommended_resources": resources,
+        "prerequisite_map": prerequisite_map,
         "coverage_percent": analysis["coverage"],
         "analysis_status": analysis["analysis_status"],
         "created_at": datetime.now(timezone.utc),
