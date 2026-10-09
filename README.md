@@ -1,6 +1,6 @@
 # AI-Powered Learning Gap Analyzer
 
-40% implementation milestone: a Python Fundamentals application with a React student and teacher interface, FastAPI, and MongoDB. Users create accounts and sign in; teachers create written assessments with expected concepts; students submit answers; the API analyzes concept coverage and stores submissions.
+40% implementation milestone: a Python Fundamentals application with a React student and teacher interface, FastAPI, and MongoDB. Users create accounts and sign in; teachers create written-answer assessments with expected concepts; students submit answers; the API estimates concept mastery with semantic NLP, stores the analysis, and shows feedback to students and teachers.
 
 ## Project folders
 
@@ -50,4 +50,6 @@ Swagger documentation is at http://127.0.0.1:8000/docs. The API uses seven-day s
 
 ## Current scope
 
-Concept detection is a transparent keyword-matching baseline. The project does not yet include a trained NLP model, knowledge graph, email verification, password reset, or production-grade authentication. Existing dashboard charts remain illustrative demo data; account, assignment, assessment, and submission records use MongoDB.
+Answer analysis uses the `all-MiniLM-L6-v2` sentence-transformer to compare the student's answer with each teacher-defined concept and its keywords. Exact keyword hits receive a strong match score. If the model package or download is unavailable, the API transparently falls back to keyword matching so submissions still work. The first semantic submission downloads and caches the model locally; this requires internet access and additional Python dependencies/model files. Submission records include per-concept mastery estimates, evidence sentences, match method, coverage, and graph nodes. Treat scores as early estimates, not grades.
+
+Email verification, password reset, and production-grade authentication are not implemented. Existing dashboard charts and some learning-gap/recommendation cards remain illustrative demo data; account, assignment, assessment, and submission records use MongoDB. Assessments are teacher-authored; automatic quiz generation is not implemented.

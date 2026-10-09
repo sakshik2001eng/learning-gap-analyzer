@@ -3,6 +3,7 @@ import base64
 import hashlib
 import hmac
 import json
+import logging
 import os
 import re
 import secrets
@@ -17,10 +18,11 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 from pymongo import MongoClient
 from pymongo.errors import ConfigurationError, DuplicateKeyError, OperationFailure, ServerSelectionTimeoutError
+from nlp_engine import analyze_semantic
 
 load_dotenv()
 
-app = FastAPI(title="Learning Gap Analyzer API", version="0.2.0")
+app = FastAPI(title="Learning Gap Analyzer API", version="0.3.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
@@ -29,6 +31,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 _mongo_client = None
+logger = logging.getLogger(__name__)
 
 
 class ExpectedConcept(BaseModel):
@@ -104,6 +107,40 @@ def analyze_concepts(answer: str, concepts: list[dict]) -> tuple[list[str], list
         (matched if found else gaps).append(concept["name"])
     coverage = round(100 * len(matched) / len(concepts)) if concepts else 0
     return matched, gaps, coverage
+
+
+def analyze_submission(answer: str, concepts: list[dict]) -> dict:
+    """Use semantic NLP when available; retain keyword matching as fallback."""
+    try:
+        result = analyze_semantic(answer, concepts)
+        return {**result, "analysis_status": "semantic_v2"}
+    except Exception as exc:
+        # The model download can fail on a restricted network or be absent
+        # before requirements are installed. Keep answer submission usable.
+        logger.warning("Semantic analysis unavailable (%s); using keyword fallback.", type(exc).__name__)
+        matched, gaps, coverage = analyze_concepts(answer, concepts)
+        matched_set = set(matched)
+        scores = []
+        for concept in concepts:
+            name = concept["name"]
+            known = name in matched_set
+            scores.append({
+                "name": name,
+                "mastery": 90 if known else 0,
+                "state": "known" if known else "gap",
+                "severity": None if known else "High",
+                "matched_by": "keyword" if known else "none",
+                "best_sentence": answer if known else "",
+            })
+        graph = [{"name": item["name"], "state": item["state"]} for item in scores]
+        return {
+            "matched": matched,
+            "gaps": gaps,
+            "coverage": coverage,
+            "concept_scores": scores,
+            "graph": graph,
+            "analysis_status": "keyword_fallback_v1",
+        }
 
 
 bearer = HTTPBearer(auto_error=False)
@@ -455,7 +492,7 @@ def submit_answer(assessment_id: str, request: SubmissionCreate, current_user: d
     if not assignment:
         raise HTTPException(status_code=403, detail="You are not assigned to this subject by its teacher.")
 
-    matched, gaps, coverage = analyze_concepts(request.answer, assessment["expected_concepts"])
+    analysis = analyze_submission(request.answer, assessment["expected_concepts"])
     record = {
         "submission_id": str(uuid4()),
         "assessment_id": assessment_id,
@@ -465,10 +502,12 @@ def submit_answer(assessment_id: str, request: SubmissionCreate, current_user: d
         "teacher_id": assessment.get("created_by"),
         "question": assessment["question"],
         "answer": request.answer,
-        "matched_concepts": matched,
-        "possible_gaps": gaps,
-        "coverage_percent": coverage,
-        "analysis_status": "keyword_match_v1",
+        "matched_concepts": analysis["matched"],
+        "possible_gaps": analysis["gaps"],
+        "concept_scores": analysis["concept_scores"],
+        "concept_graph": analysis["graph"],
+        "coverage_percent": analysis["coverage"],
+        "analysis_status": analysis["analysis_status"],
         "created_at": datetime.now(timezone.utc),
     }
     try:

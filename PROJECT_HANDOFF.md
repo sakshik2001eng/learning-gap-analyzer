@@ -4,15 +4,15 @@ This document is for the next teammate taking over the project. It describes the
 
 ## Project goal and current milestone
 
-The project is a Python Fundamentals learning-gap analyzer. A teacher creates a written-answer assessment and defines expected concepts. The assigned student submits an answer. FastAPI compares the answer with the expected keywords, saves the analysis in MongoDB, and shows the student feedback and the teacher progress.
+The project is a Python Fundamentals learning-gap analyzer. A teacher creates a written-answer assessment and defines expected concepts. The assigned student submits an answer. FastAPI compares answer sentences with each concept and its keywords using a sentence-transformer, saves the analysis in MongoDB, and shows per-concept feedback to students and teachers.
 
-The current scope is a demonstrable partial implementation. The analysis is a keyword-matching baseline. It is not a trained NLP system, automatic quiz generator, or knowledge graph yet.
+The current scope is a demonstrable partial implementation. Semantic analysis is integrated into student answer submissions, with keyword fallback if the model cannot load. Assessments remain teacher-authored; automatic quiz generation is not implemented. The concept map is a simple display of analysis states, not a persisted prerequisite knowledge graph.
 
 ## Current GitHub state
 
 - Repository: [sakshik2001eng/learning-gap-analyzer](https://github.com/sakshik2001eng/learning-gap-analyzer)
 - Active branch: `feature/keep-claude-frontend`
-- Latest pushed implementation commit: `02a0290` — `Add accounts and teacher student assignments`
+- Latest implementation commit: `Integrate semantic answer analysis` (see `git log -1` for its current commit ID).
 - The changes are on the feature branch; they have not been merged into `main`.
 - Local working tree also has two unrelated items that were intentionally not included in the commit: a modified `frontend_claude/package-lock.json` and an accidental nested `learning-gap-analyzer/` clone. Check `git status` before staging anything; avoid `git add .` until those items are understood.
 - `backend/.env` is ignored by Git and must remain private. It contains the local MongoDB URI and a locally generated `JWT_SECRET_KEY`; never copy those values into this document, chat, or GitHub.
@@ -20,7 +20,7 @@ The current scope is a demonstrable partial implementation. The analysis is a ke
 ## Technology and layout
 
 - Frontend: React 18, React Router, Vite, Tailwind CSS, Recharts, Lucide icons.
-- Backend: Python, FastAPI, Pydantic, PyMongo, python-dotenv.
+- Backend: Python, FastAPI, Pydantic, PyMongo, python-dotenv, sentence-transformers (`all-MiniLM-L6-v2`).
 - Database: MongoDB Atlas, database `learning_gap_analyzer`.
 - Authentication uses Python standard-library PBKDF2-HMAC-SHA256 password hashing and HMAC-SHA256 signed bearer tokens. No extra auth package is required.
 - Main folders: `backend/` and `frontend_claude/`. The Claude frontend is the active UI; the Devin frontend was removed earlier.
@@ -50,8 +50,9 @@ The current scope is a demonstrable partial implementation. The analysis is a ke
 - Teachers create written-answer assessments under **Assessments**. Each assessment has a subject, title, description, question, and expected concepts/keywords.
 - Students can list and open only assessments whose teacher and subject match their assignment.
 - Students submit a free-text answer. The backend uses the student's signed-in account as the submitter; the browser cannot choose another student ID.
-- For each expected concept, the backend checks whether one of its teacher-provided keywords appears in the answer after lowercasing and removing punctuation. It returns matched concepts, possible gaps, and percentage coverage.
-- The teacher's **My Students** page shows each assigned email and subject, pending/active status, assessment count, submission count, average keyword coverage, and latest activity.
+- For each expected concept, the backend compares the concept name and teacher-provided keywords against answer sentences using semantic similarity. Exact keyword hits receive a strong match score. It returns estimated mastery, match method, best evidence sentence, matched concepts, possible gaps, coverage, and concept-map nodes.
+- The analyzer loads the model lazily on the first submission and caches it in the API process. The first run needs internet access to download it. If the package or download is unavailable, keyword matching keeps answer submissions working; `analysis_status` is `semantic_v2` or `keyword_fallback_v1`.
+- The teacher's **My Students** page shows each assigned email and subject, pending/active status, assessment count, submission count, average assessment coverage, and latest activity.
 - Teacher submission views show the answer and its matched/missing concepts for their own assessments.
 - Quiz questions are teacher-authored. They are **not** generated automatically from notes or materials.
 - Other dashboard charts, learning-gap cards, recommendations, reports, and some student details remain illustrative/static demo data. The connected student subject/progress view and teacher assignment/progress view are the data-driven parts of those dashboards.
@@ -63,7 +64,7 @@ The application creates or uses these collections in `learning_gap_analyzer`:
 - `users`: `user_id`, `name`, normalized `email`, `password_hash`, `role`, and `created_at`. A unique email index is created during sign-up.
 - `assignments`: `assignment_id`, `teacher_id`, `teacher_name`, `student_email`, nullable `student_id`/`student_name`, `subject`, status, and `created_at`. A unique compound index prevents the same teacher assigning the same email to the same subject twice.
 - `assessments`: `assessment_id`, title, description, subject, question, teacher-owned `expected_concepts`, `created_by`, and `created_at`.
-- `submissions`: `submission_id`, assessment/teacher/student IDs, student name, question and answer, matched concepts, possible gaps, coverage percent, analysis status, and timestamp.
+- `submissions`: `submission_id`, assessment/teacher/student IDs, student name, question and answer, matched concepts, possible gaps, per-concept scores/evidence, concept graph nodes, coverage percent, analysis status, and timestamp.
 
 The expected-concept rubric is deliberately omitted from student-facing assessment responses. The saved submission contains its analysis result, not a need for the student to supply the rubric.
 
